@@ -1,6 +1,6 @@
 # User Stories
 
-## 🛠️ Admin User Stories
+##  Admin User Stories
 
 ### User Story 1
 
@@ -92,7 +92,7 @@
 
 ---
 
-## 🩺 Doctor User Stories
+##  Doctor User Stories
 
 ### User Story 6
 
@@ -184,7 +184,7 @@
 
 ---
 
-## 👤 Patient User Stories
+##  Patient User Stories
 
 ### User Story 11
 
