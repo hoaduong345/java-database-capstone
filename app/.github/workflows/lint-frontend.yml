@@ -1,0 +1,35 @@
+name: Lint Frontend
+
+on: [push, pull_request]
+
+jobs:
+	lint-frontend:
+		name: Lint HTML, CSS, and JS
+		runs-on: ubuntu-latest
+
+		steps:
+			- name: Check out repository
+				uses: actions/checkout@v4
+
+			- name: Set up Node.js
+				uses: actions/setup-node@v4
+				with:
+					node-version: "18"
+
+			- name: Install linters
+				run: npm install --global htmlhint stylelint eslint@8
+
+			- name: Configure linters
+				run: |
+					printf '%s\n' '{"tagname-lowercase":true,"attr-lowercase":true,"attr-value-double-quotes":true}' > "$RUNNER_TEMP/htmlhint.json"
+					printf '%s\n' '{"rules":{"color-no-invalid-hex":true,"declaration-block-no-duplicate-properties":true}}' > "$RUNNER_TEMP/stylelint.json"
+					printf '%s\n' '{"env":{"browser":true,"es2021":true},"parserOptions":{"ecmaVersion":"latest","sourceType":"module"},"rules":{"no-undef":"error","no-unused-vars":"warn"}}' > "$RUNNER_TEMP/eslint.json"
+
+			- name: Lint HTML
+				run: htmlhint --config "$RUNNER_TEMP/htmlhint.json" "app/src/main/resources/static/**/*.html" || true
+
+			- name: Lint CSS
+				run: stylelint --config "$RUNNER_TEMP/stylelint.json" "app/src/main/resources/static/assets/css/**/*.css" || true
+
+			- name: Lint JS
+				run: eslint --config "$RUNNER_TEMP/eslint.json" "app/src/main/resources/static/js/**/*.js" || true
