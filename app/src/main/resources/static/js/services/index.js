@@ -56,3 +56,106 @@
     - Log the error to the console
     - Show a generic error message
 */
+
+import { API_BASE_URL } from "../config/config.js";
+import { openModal } from "../components/modals.js";
+
+const ADMIN_API = `${API_BASE_URL}/admin/login`;
+const DOCTOR_API = `${API_BASE_URL}/doctor/login`;
+
+async function readResponse(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+function initializeRoleLoginButtons() {
+  document
+    .getElementById("adminLogin")
+    ?.addEventListener("click", () => openModal("adminLogin"));
+  document
+    .getElementById("doctorLogin")
+    ?.addEventListener("click", () => openModal("doctorLogin"));
+}
+
+async function submitLogin(endpoint, credentials, role, buttonId) {
+  const submitButton = document.getElementById(buttonId);
+  if (!credentials.username && role === "admin") {
+    window.alert("Enter your username.");
+    return;
+  }
+  if (!credentials.email && role === "doctor") {
+    window.alert("Enter your email.");
+    return;
+  }
+  if (!credentials.password) {
+    window.alert("Enter your password.");
+    return;
+  }
+
+  if (submitButton) submitButton.disabled = true;
+
+  try {
+    // Send credentials to the role-specific endpoint and validate its response.
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(credentials),
+    });
+    const data = await readResponse(response);
+
+    if (!response.ok || !data.token) {
+      window.alert(data.message || "Invalid credentials.");
+      return;
+    }
+
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("userRole", role);
+    if (typeof window.selectRole === "function") {
+      window.selectRole(role);
+    } else {
+      const destination =
+        role === "admin" ? "adminDashboard" : "doctorDashboard";
+      window.location.assign(
+        `/${destination}/${encodeURIComponent(data.token)}`,
+      );
+    }
+  } catch (error) {
+    console.error(`${role} login failed:`, error);
+    window.alert("Unable to sign in right now. Please try again.");
+  } finally {
+    if (submitButton?.isConnected) submitButton.disabled = false;
+  }
+}
+
+window.adminLoginHandler = async function adminLoginHandler() {
+  const username = document.getElementById("username")?.value.trim() || "";
+  const password = document.getElementById("password")?.value || "";
+  await submitLogin(
+    ADMIN_API,
+    { username, password },
+    "admin",
+    "adminLoginBtn",
+  );
+};
+
+window.doctorLoginHandler = async function doctorLoginHandler() {
+  const email = document.getElementById("email")?.value.trim() || "";
+  const password = document.getElementById("password")?.value || "";
+  await submitLogin(
+    DOCTOR_API,
+    { email, password },
+    "doctor",
+    "doctorLoginBtn",
+  );
+};
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeRoleLoginButtons, {
+    once: true,
+  });
+} else {
+  initializeRoleLoginButtons();
+}

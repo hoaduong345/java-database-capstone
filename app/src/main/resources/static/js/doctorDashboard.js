@@ -52,3 +52,109 @@
     - Call renderContent() (assumes it sets up the UI layout)
     - Call loadAppointments() to display today's appointments by default
 */
+
+import { getAllAppointments } from "./services/appointmentRecordService.js";
+import { createPatientRow } from "./components/patientRows.js";
+
+const patientTableBody = document.getElementById("patientTableBody");
+const datePicker = document.getElementById("datePicker");
+const searchBar = document.getElementById("searchBar");
+const todayButton = document.getElementById("todayButton");
+const token = localStorage.getItem("token");
+
+let selectedDate = getLocalDateString();
+let patientName = null;
+
+function initializeDoctorDashboard() {
+  if (!patientTableBody) return;
+
+  if (datePicker) datePicker.value = selectedDate;
+  searchBar?.addEventListener("input", () => {
+    patientName = searchBar.value.trim() || null;
+    loadAppointments();
+  });
+  todayButton?.addEventListener("click", () => {
+    selectedDate = getLocalDateString();
+    if (datePicker) datePicker.value = selectedDate;
+    loadAppointments();
+  });
+  datePicker?.addEventListener("change", () => {
+    if (!datePicker.value) return;
+    selectedDate = datePicker.value;
+    loadAppointments();
+  });
+
+  loadAppointments();
+}
+
+async function loadAppointments() {
+  if (!patientTableBody) return;
+  if (!token) {
+    renderMessage("Your session has expired. Please sign in again.");
+    return;
+  }
+
+  patientTableBody.setAttribute("aria-busy", "true");
+  try {
+    const response = await getAllAppointments(
+      encodeURIComponent(selectedDate),
+      encodeURIComponent(patientName || "null"),
+      encodeURIComponent(token),
+    );
+    const appointments = Array.isArray(response)
+      ? response
+      : Array.isArray(response.appointments)
+        ? response.appointments
+        : [];
+
+    patientTableBody.replaceChildren();
+    if (!appointments.length) {
+      renderMessage("No appointments found for this date.");
+      return;
+    }
+
+    appointments.forEach((appointment) => {
+      const patient = appointment.patient || {
+        id: appointment.patientId,
+        name: appointment.patientName,
+        phone: appointment.patientPhone,
+        email: appointment.patientEmail,
+      };
+      const appointmentId = appointment.id ?? appointment.appointmentId;
+      const doctorId = appointment.doctorId ?? appointment.doctor?.id;
+      patientTableBody.append(
+        createPatientRow(patient, appointmentId, doctorId),
+      );
+    });
+  } catch (error) {
+    console.error("Failed to load appointments:", error);
+    renderMessage("Error loading appointments. Try again later.");
+  } finally {
+    patientTableBody.removeAttribute("aria-busy");
+  }
+}
+
+function renderMessage(message) {
+  patientTableBody.replaceChildren();
+  const row = document.createElement("tr");
+  const cell = document.createElement("td");
+  cell.className = "noPatientRecord";
+  cell.colSpan = 5;
+  cell.textContent = message;
+  row.append(cell);
+  patientTableBody.append(row);
+}
+
+function getLocalDateString() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60_000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeDoctorDashboard, {
+    once: true,
+  });
+} else {
+  initializeDoctorDashboard();
+}

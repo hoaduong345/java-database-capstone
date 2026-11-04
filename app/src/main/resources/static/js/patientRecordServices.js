@@ -1,6 +1,6 @@
 // patientRecordServices.js
 import { getPatientAppointments } from "./services/patientServices.js";
-import { createPatientRecordRow } from './components/patientRecordRow.js';
+import { createPatientRecordRow } from "./components/patientRecordRow.js";
 
 const tableBody = document.getElementById("patientTableBody");
 const token = localStorage.getItem("token");
@@ -15,12 +15,22 @@ async function initializePage() {
   try {
     if (!token) throw new Error("No token found");
 
-    const appointmentData = await getPatientAppointments(patientId, token, "doctor") || [];
+    const appointmentResult = await getPatientAppointments(
+      patientId,
+      token,
+      "doctor",
+    );
+    if (!appointmentResult.success) {
+      throw new Error(
+        appointmentResult.message || "Failed to fetch appointments",
+      );
+    }
 
     // Filter by both patientId and doctorId
-    const filteredAppointments = appointmentData.filter(app =>
-      app.doctorId == doctorId);
-    console.log(filteredAppointments)
+    const filteredAppointments = appointmentResult.appointments.filter(
+      (app) => app.doctorId == doctorId,
+    );
+    console.log(filteredAppointments);
     renderAppointments(filteredAppointments);
   } catch (error) {
     console.error("Error loading appointments:", error);
@@ -31,7 +41,9 @@ async function initializePage() {
 function renderAppointments(appointments) {
   tableBody.innerHTML = "";
 
-  const actionTh = document.querySelector("#patientTable thead tr th:last-child");
+  const actionTh = document.querySelector(
+    "#patientTable thead tr th:last-child",
+  );
   if (actionTh) {
     actionTh.style.display = "table-cell"; // Always show "Actions" column
   }
@@ -41,7 +53,7 @@ function renderAppointments(appointments) {
     return;
   }
 
-  appointments.forEach(appointment => {
+  appointments.forEach((appointment) => {
     const row = createPatientRecordRow(appointment);
     tableBody.appendChild(row);
   });

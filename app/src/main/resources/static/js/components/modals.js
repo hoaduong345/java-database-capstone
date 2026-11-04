@@ -1,7 +1,11 @@
 // modals.js
 export function openModal(type) {
-  let modalContent = '';
-  if (type === 'addDoctor') {
+  const modal = document.getElementById("modal");
+  const modalBody = document.getElementById("modal-body");
+  if (!modal || !modalBody) return false;
+
+  let modalContent = "";
+  if (type === "addDoctor") {
     modalContent = `
          <h2>Add Doctor</h2>
          <input type="text" id="doctorName" placeholder="Doctor Name" class="input-field">
@@ -37,15 +41,14 @@ export function openModal(type) {
         </div>
         <button class="dashboard-btn" id="saveDoctorBtn">Save</button>
       `;
-  } else if (type === 'patientLogin') {
+  } else if (type === "patientLogin") {
     modalContent = `
         <h2>Patient Login</h2>
         <input type="text" id="email" placeholder="Email" class="input-field">
         <input type="password" id="password" placeholder="Password" class="input-field">
         <button class="dashboard-btn" id="loginBtn">Login</button>
       `;
-  }
-  else if (type === "patientSignup") {
+  } else if (type === "patientSignup") {
     modalContent = `
       <h2>Patient Signup</h2>
       <input type="text" id="name" placeholder="Name" class="input-field">
@@ -55,15 +58,14 @@ export function openModal(type) {
       <input type="text" id="address" placeholder="Address" class="input-field">
       <button class="dashboard-btn" id="signupBtn">Signup</button>
     `;
-
-  } else if (type === 'adminLogin') {
+  } else if (type === "adminLogin") {
     modalContent = `
         <h2>Admin Login</h2>
         <input type="text" id="username" name="username" placeholder="Username" class="input-field">
         <input type="password" id="password" name="password" placeholder="Password" class="input-field">
         <button class="dashboard-btn" id="adminLoginBtn" >Login</button>
       `;
-  } else if (type === 'doctorLogin') {
+  } else if (type === "doctorLogin") {
     modalContent = `
         <h2>Doctor Login</h2>
         <input type="text" id="email" placeholder="Email" class="input-field">
@@ -72,30 +74,35 @@ export function openModal(type) {
       `;
   }
 
-  document.getElementById('modal-body').innerHTML = modalContent;
-  document.getElementById('modal').style.display = 'block';
+  if (!modalContent) return false;
 
-  document.getElementById('closeModal').onclick = () => {
-    document.getElementById('modal').style.display = 'none';
+  modalBody.innerHTML = modalContent;
+  modalBody.querySelector("h2")?.setAttribute("id", "modal-title");
+  modal.style.display = "block";
+
+  const closeButton = document.getElementById("closeModal");
+  if (closeButton) {
+    closeButton.onclick = () => {
+      modal.style.display = "none";
+    };
+  }
+
+  const handlers = {
+    patientSignup: ["signupBtn", window.signupPatient],
+    patientLogin: ["loginBtn", window.loginPatient],
+    addDoctor: ["saveDoctorBtn", window.adminAddDoctor],
+    adminLogin: ["adminLoginBtn", window.adminLoginHandler],
+    doctorLogin: ["doctorLoginBtn", window.doctorLoginHandler],
   };
 
-  if (type === "patientSignup") {
-    document.getElementById("signupBtn").addEventListener("click", signupPatient);
+  const [buttonId, handler] = handlers[type];
+  const actionButton = document.getElementById(buttonId);
+  if (actionButton && typeof handler === "function") {
+    actionButton.addEventListener("click", handler);
+  } else if (actionButton) {
+    actionButton.disabled = true;
+    actionButton.title = "This action is not available yet.";
   }
 
-  if (type === "patientLogin") {
-    document.getElementById("loginBtn").addEventListener("click", loginPatient);
-  }
-
-  if (type === 'addDoctor') {
-    document.getElementById('saveDoctorBtn').addEventListener('click', adminAddDoctor);
-  }
-
-  if (type === 'adminLogin') {
-    document.getElementById('adminLoginBtn').addEventListener('click', adminLoginHandler);
-  }
-
-  if (type === 'doctorLogin') {
-    document.getElementById('doctorLoginBtn').addEventListener('click', doctorLoginHandler);
-  }
+  return true;
 }

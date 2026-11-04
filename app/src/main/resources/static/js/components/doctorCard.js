@@ -119,17 +119,17 @@ export function createDoctorCard(doctor) {
       }
 
       bookButton.disabled = true;
-      const patient = await getPatientData(token);
+      const patientResult = await getPatientData(token);
       bookButton.disabled = false;
 
-      if (!patient) {
+      if (!patientResult.success || !patientResult.patient) {
         window.alert(
-          "Unable to load your patient profile. Please sign in again.",
+          patientResult.message || "Unable to load your patient profile.",
         );
         return;
       }
 
-      showBookingOverlay(event, doctor, patient);
+      showBookingOverlay(event, doctor, patientResult.patient);
     });
     actions.append(bookButton);
   }
