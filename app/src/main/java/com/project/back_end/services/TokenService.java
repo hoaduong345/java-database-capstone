@@ -1,6 +1,84 @@
 package com.project.back_end.services;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
+
+import javax.crypto.SecretKey;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import com.project.back_end.repo.AdminRepository;
+import com.project.back_end.repo.DoctorRepository;
+import com.project.back_end.repo.PatientRepository;
+
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+
+@Component
 public class TokenService {
+	private final AdminRepository adminRepository;
+	private final DoctorRepository doctorRepository;
+	private final PatientRepository patientRepository;
+
+	@Value("${jwt.secret}")
+	private String jwtSecret;
+
+	public TokenService(
+		AdminRepository adminRepository,
+		DoctorRepository doctorRepository,
+		PatientRepository patientRepository
+	) {
+		this.adminRepository = adminRepository;
+		this.doctorRepository = doctorRepository;
+		this.patientRepository = patientRepository;
+	}
+
+	private SecretKey getSigningKey() {
+		return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+	}
+
+	public String generateToken(String subject) {
+		Instant issuedAt = Instant.now();
+		return Jwts.builder()
+			.subject(subject)
+			.issuedAt(Date.from(issuedAt))
+			.expiration(Date.from(issuedAt.plus(7, ChronoUnit.DAYS)))
+			.signWith(getSigningKey())
+			.compact();
+	}
+
+	public String extractEmail(String token) {
+		try {
+			return Jwts.parser()
+				.verifyWith(getSigningKey())
+				.build()
+				.parseSignedClaims(token)
+				.getPayload()
+				.getSubject();
+		} catch (JwtException | IllegalArgumentException error) {
+			return null;
+		}
+	}
+
+	public boolean validateToken(String token, String userType) {
+		String subject = extractEmail(token);
+		if (subject == null || subject.isBlank()) return false;
+
+		try {
+			return switch (userType == null ? "" : userType.toLowerCase()) {
+				case "admin" -> adminRepository.findByUsername(subject) != null;
+				case "doctor" -> doctorRepository.findByEmail(subject) != null;
+				case "patient" -> patientRepository.findByEmail(subject) != null;
+				default -> false;
+			};
+		} catch (RuntimeException error) {
+			return false;
+		}
+	}
 // 1. **@Component Annotation**
 // The @Component annotation marks this class as a Spring component, meaning Spring will manage it as a bean within its application context.
 // This allows the class to be injected into other Spring-managed components (like services or controllers) where it's needed.
