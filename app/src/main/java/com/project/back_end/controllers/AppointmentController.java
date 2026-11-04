@@ -1,7 +1,98 @@
 package com.project.back_end.controllers;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.project.back_end.models.Appointment;
+import com.project.back_end.services.AppointmentService;
+import com.project.back_end.services.Service;
+
+import jakarta.validation.Valid;
+
+@RestController
+@RequestMapping("/appointments")
 public class AppointmentController {
+
+	private final AppointmentService appointmentService;
+	private final Service service;
+
+	public AppointmentController(AppointmentService appointmentService, Service service) {
+		this.appointmentService = appointmentService;
+		this.service = service;
+	}
+
+	@GetMapping("/{date}/{patientName}/{token}")
+	public ResponseEntity<Map<String, Object>> getAppointments(
+		@PathVariable("date") String date,
+		@PathVariable("patientName") String patientName,
+		@PathVariable("token") String token
+	) {
+		if (!service.validateToken(token, "doctor")) return response(HttpStatus.UNAUTHORIZED, "Invalid or expired doctor token.");
+		try {
+			Map<String, Object> body = new LinkedHashMap<>();
+			body.put("appointments", appointmentService.getAppointments(date, patientName, token));
+			return ResponseEntity.ok(body);
+		} catch (RuntimeException error) {
+			return response(HttpStatus.BAD_REQUEST, "Invalid appointment date or request.");
+		}
+	}
+
+	@PostMapping("/{token}")
+	public ResponseEntity<Map<String, Object>> bookAppointment(
+		@Valid @RequestBody Appointment appointment,
+		@PathVariable("token") String token
+	) {
+		if (!service.validateToken(token, "patient")) return response(HttpStatus.UNAUTHORIZED, "Invalid or expired patient token.");
+		int validation = service.validateAppointment(appointment);
+		if (validation == -1) return response(HttpStatus.NOT_FOUND, "Doctor was not found.");
+		if (validation == 0) return response(HttpStatus.CONFLICT, "The selected appointment time is unavailable.");
+
+		int result = appointmentService.bookAppointment(appointment, token);
+		if (result == 1) return response(HttpStatus.CREATED, "Appointment booked successfully.");
+		if (result == -1) return response(HttpStatus.NOT_FOUND, "Doctor was not found.");
+		return response(HttpStatus.CONFLICT, "Unable to book the selected appointment.");
+	}
+
+	@PutMapping("/{token}")
+	public ResponseEntity<Map<String, Object>> updateAppointment(
+		@Valid @RequestBody Appointment appointment,
+		@PathVariable("token") String token
+	) {
+		if (!service.validateToken(token, "patient")) return response(HttpStatus.UNAUTHORIZED, "Invalid or expired patient token.");
+		int result = appointmentService.updateAppointment(appointment, token);
+		if (result == 1) return response(HttpStatus.OK, "Appointment updated successfully.");
+		if (result == -1) return response(HttpStatus.NOT_FOUND, "Appointment or doctor was not found.");
+		return response(HttpStatus.CONFLICT, "Unable to update the selected appointment.");
+	}
+
+	@DeleteMapping("/{appointmentId}/{token}")
+	public ResponseEntity<Map<String, Object>> cancelAppointment(
+		@PathVariable("appointmentId") Long appointmentId,
+		@PathVariable("token") String token
+	) {
+		if (!service.validateToken(token, "patient")) return response(HttpStatus.UNAUTHORIZED, "Invalid or expired patient token.");
+		int result = appointmentService.cancelAppointment(appointmentId, token);
+		if (result == 1) return response(HttpStatus.OK, "Appointment cancelled successfully.");
+		if (result == -1) return response(HttpStatus.NOT_FOUND, "Appointment was not found.");
+		return response(HttpStatus.FORBIDDEN, "You cannot cancel this appointment.");
+	}
+
+	private static ResponseEntity<Map<String, Object>> response(HttpStatus status, String message) {
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("message", message);
+		return ResponseEntity.status(status).body(body);
+	}
 
 // 1. Set Up the Controller Class:
 //    - Annotate the class with `@RestController` to define it as a REST API controller.
