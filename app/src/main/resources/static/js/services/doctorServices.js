@@ -51,3 +51,95 @@
 
    Catch any other errors, alert the user, and return a default empty result
 */
+
+import { API_BASE_URL } from "../config/config.js";
+
+const DOCTOR_API = `${API_BASE_URL}/doctor`;
+
+async function readResponse(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+export async function getDoctors() {
+  try {
+    const response = await fetch(DOCTOR_API);
+    const data = await readResponse(response);
+    if (!response.ok)
+      throw new Error(data.message || "Failed to load doctors.");
+    return Array.isArray(data.doctors) ? data.doctors : [];
+  } catch (error) {
+    console.error("Failed to fetch doctors:", error);
+    return [];
+  }
+}
+
+export async function deleteDoctor(doctorId, token) {
+  try {
+    const response = await fetch(
+      `${DOCTOR_API}/${encodeURIComponent(doctorId)}/${encodeURIComponent(token)}`,
+      {
+        method: "DELETE",
+      },
+    );
+    const data = await readResponse(response);
+    return {
+      success: response.ok,
+      message:
+        data.message ||
+        (response.ok
+          ? "Doctor deleted successfully."
+          : "Failed to delete doctor."),
+    };
+  } catch (error) {
+    console.error("Failed to delete doctor:", error);
+    return { success: false, message: "Network error. Please try again." };
+  }
+}
+
+export async function saveDoctor(doctor, token) {
+  try {
+    const response = await fetch(`${DOCTOR_API}/${encodeURIComponent(token)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(doctor),
+    });
+    const data = await readResponse(response);
+    return {
+      success: response.ok,
+      message:
+        data.message ||
+        (response.ok ? "Doctor saved successfully." : "Failed to save doctor."),
+    };
+  } catch (error) {
+    console.error("Failed to save doctor:", error);
+    return { success: false, message: "Network error. Please try again." };
+  }
+}
+
+export async function filterDoctors(
+  name = null,
+  time = null,
+  specialty = null,
+) {
+  const criteria = [name, time, specialty].map((value) =>
+    encodeURIComponent(value == null || value === "" ? "null" : value),
+  );
+
+  try {
+    const response = await fetch(`${DOCTOR_API}/filter/${criteria.join("/")}`);
+    const data = await readResponse(response);
+    if (!response.ok)
+      throw new Error(data.message || "Failed to filter doctors.");
+    return {
+      ...data,
+      doctors: Array.isArray(data.doctors) ? data.doctors : [],
+    };
+  } catch (error) {
+    console.error("Failed to filter doctors:", error);
+    return { doctors: [] };
+  }
+}

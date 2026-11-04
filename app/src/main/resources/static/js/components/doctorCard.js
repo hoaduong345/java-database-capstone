@@ -39,3 +39,108 @@ Import the overlay function for booking appointments from loggedPatient.js
   Append doctor info and action buttons to the car
   Return the complete doctor card element
 */
+
+import { showBookingOverlay } from "../loggedPatient.js";
+import { getPatientData } from "../services/patientServices.js";
+import { deleteDoctor } from "../services/doctorServices.js";
+
+export function createDoctorCard(doctor) {
+  const card = document.createElement("article");
+  card.className = "doctor-card";
+
+  const info = document.createElement("div");
+  info.className = "doctor-info";
+
+  const name = document.createElement("h3");
+  name.textContent = doctor.name || "Doctor";
+
+  const specialty = document.createElement("p");
+  specialty.textContent = `Specialty: ${doctor.specialty || doctor.specialization || doctor.speciality || "Not listed"}`;
+
+  const email = document.createElement("p");
+  email.textContent = `Email: ${doctor.email || "Not listed"}`;
+
+  const availability = document.createElement("p");
+  const availableTimes = Array.isArray(doctor.availableTimes)
+    ? doctor.availableTimes
+    : [];
+  availability.textContent = availableTimes.length
+    ? `Available: ${availableTimes.join(", ")}`
+    : "Availability not listed";
+
+  info.append(name, specialty, email, availability);
+  card.append(info);
+
+  const role = localStorage.getItem("userRole");
+  const actions = document.createElement("div");
+  actions.className = "card-actions";
+
+  if (role === "admin") {
+    const removeButton = createActionButton("Delete doctor");
+    removeButton.addEventListener("click", async () => {
+      if (
+        !doctor.id ||
+        !window.confirm(`Delete ${doctor.name || "this doctor"}?`)
+      )
+        return;
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        window.alert("Your session has expired. Please sign in again.");
+        window.location.assign("/");
+        return;
+      }
+
+      removeButton.disabled = true;
+      const result = await deleteDoctor(doctor.id, token);
+      if (result.success) {
+        card.remove();
+        window.alert(result.message || "Doctor deleted successfully.");
+      } else {
+        removeButton.disabled = false;
+        window.alert(result.message || "Could not delete this doctor.");
+      }
+    });
+    actions.append(removeButton);
+  } else if (role === "patient") {
+    const bookButton = createActionButton("Book appointment");
+    bookButton.addEventListener("click", () => {
+      window.alert("Please log in before booking an appointment.");
+    });
+    actions.append(bookButton);
+  } else if (role === "loggedPatient") {
+    const bookButton = createActionButton("Book appointment");
+    bookButton.addEventListener("click", async (event) => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        window.alert("Your session has expired. Please log in again.");
+        window.location.assign("/pages/patientDashboard.html");
+        return;
+      }
+
+      bookButton.disabled = true;
+      const patient = await getPatientData(token);
+      bookButton.disabled = false;
+
+      if (!patient) {
+        window.alert(
+          "Unable to load your patient profile. Please sign in again.",
+        );
+        return;
+      }
+
+      showBookingOverlay(event, doctor, patient);
+    });
+    actions.append(bookButton);
+  }
+
+  if (actions.childElementCount > 0) card.append(actions);
+  return card;
+}
+
+function createActionButton(label) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = label;
+  return button;
+}

@@ -1,94 +1,189 @@
-/*this is the style sheet for the adminDashboard. */
+:root {
+  --dashboard-ink: #203b39;
+  --dashboard-teal: #015c5d;
+  --dashboard-red: #a62b1f;
+  --dashboard-paper: #f5f7f5;
+}
 
-/* 
-Global Reset (`*`)
+* {
+  box-sizing: border-box;
+}
 
-* Purpose: Ensure consistent layout across all browsers.
-* Properties:
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
 
-  * `margin: 0` — removes default outer spacing from all elements.
-  * `padding: 0` — removes default inner spacing.
-  * `box-sizing: border-box` — ensures padding and borders are included within the total width/height of elements.
+body {
+  color: var(--dashboard-ink);
+  font-family: Arial, sans-serif;
+}
 
-Base HTML & Body (`html, body`)
+.container,
+.wrapper {
+  min-height: 100vh;
+}
 
-* Purpose: Establish a full-height layout and apply a standard font across the page.
-* Properties:
+.wrapper {
+  display: flex;
+  flex-direction: column;
+}
 
-  * `height: 100%` — allows containers to stretch to the full viewport height.
-  * `font-family: Arial, sans-serif` — applies a clean, readable sans-serif font.
+.main-content {
+  flex: 1;
+  padding: 40px clamp(18px, 5vw, 64px);
+  background:
+    linear-gradient(rgba(247, 250, 248, 0.94), rgba(247, 250, 248, 0.94)),
+    url("../images/defineRole/index.png") center / cover no-repeat fixed;
+}
 
-Main Layout Wrapper (`.wrapper`)
+.dashboard-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  max-width: 1240px;
+  margin: 0 auto 28px;
+}
 
-* Purpose: Create a flexible, vertical layout that fills the entire screen.
-* Properties:
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--dashboard-red);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 
-  * `display: flex` — enables flexbox for layout control.
-  * `flex-direction: column` — stacks children vertically.
-  * `min-height: 100vh` — ensures the wrapper always covers full screen height.
+.dashboard-heading h1 {
+  margin: 0;
+  color: var(--dashboard-ink);
+  font-size: 32px;
+}
 
-Section Heading (`h2`)
+.directory-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 1240px;
+  margin: 0 auto;
+}
 
-* Purpose: Style the headings prominently for section separation.
-* Properties:
+.searchBar {
+  width: min(100%, 400px);
+  min-height: 42px;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid #bdcbc6;
+  border-radius: 5px;
+  background: #fff;
+  color: var(--dashboard-ink);
+  font-size: 15px;
+}
 
-  * `font-size: 32px` — makes the heading large and noticeable.
-  * `font-weight: bold` — emphasizes text.
-  * `margin-bottom: 50px` — creates space below the heading.
-  * `color: #003e3e` — uses a strong teal for visual anchoring.
+.searchBar:focus,
+.filter-select:focus {
+  outline: 2px solid rgba(1, 92, 93, 0.25);
+  border-color: var(--dashboard-teal);
+}
 
-Main Content Section (`.main-content`)
+.filter-wrapper {
+  display: flex;
+  gap: 8px;
+  width: min(100%, 440px);
+}
 
-* Purpose: Layout the main content with padding and a background image.
-* Properties:
+.filter-select {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid #bdcbc6;
+  border-radius: 5px;
+  background: #fff;
+  color: var(--dashboard-ink);
+  font-size: 14px;
+}
 
-  * `flex-grow: 1` — lets the content fill the available vertical space.
-  * `padding: 40px` — adds internal spacing around content.
-  * `display: flex` and `flex-direction: column` — organizes content in a vertical stack.
-  * `text-align: center` — centers the text.
-  * `background-image: url("index.png")` — sets a full-screen dashboard background.
-  * `background-size: cover` — ensures the image covers the whole section.
-  * `background-position: center` — centers the image.
-  * `background-repeat: no-repeat` — avoids tiling the image.
-  * `background-attachment: fixed` — fixes the image while scrolling.
+.dashboard-btn {
+  width: auto;
+  min-height: 42px;
+  margin: 0;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--dashboard-teal);
+  color: #fff;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+}
 
-Primary Button (`button`)
+.dashboard-heading .dashboard-btn {
+  width: auto;
+}
 
-* Purpose: Design prominent, interactive buttons for main actions.
+.dashboard-btn:hover {
+  background: #003e3e;
+}
 
-* Properties:
+.adminBtn {
+  width: auto;
+  padding: 10px 14px;
+  border: 0;
+  background: #f4f4f4;
+  color: #333;
+  cursor: pointer;
+  font-weight: 700;
+}
 
-  * `background-color: #A62B1F` — sets a bold red color.
-  * `color: white` — makes text stand out.
-  * `border: none` — removes any outline/border.
-  * `border-radius: 12px` — creates rounded corners.
-  * `padding: 10px 20px` — gives space inside the button.
-  * `margin-top: 20px` — adds spacing above the button.
-  * `width: 200px` — ensures consistent button width.
-  * `cursor: pointer` — shows a hand icon on hover.
-  * `font-size: 16px` — makes the text readable.
+.adminBtn:hover {
+  color: var(--dashboard-red);
+}
 
-* On Hover:
+#content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 20px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 0;
+}
 
-  * Retains the same red background to maintain branding.
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
 
-Admin Button (`.adminBtn`)
+@media (max-width: 700px) {
+  .main-content {
+    padding: 28px 16px;
+    background-attachment: scroll;
+  }
 
-* Purpose: Provide a secondary button style for admin-specific actions.
+  .dashboard-heading,
+  .directory-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
 
-* Properties:
+  .dashboard-heading h1 {
+    font-size: 28px;
+  }
 
-  * `background-color: #f4f4f4` — uses a light grey background.
-  * `color: #333` — uses dark text for contrast.
-  * `font-weight: bold` — emphasizes text.
-  * `width: 110px` — smaller, compact width.
-  * `padding: 10px 0` — vertical padding only.
-  * `border: none` — clean look.
-  * `cursor: pointer` — indicates it's clickable.
+  .searchBar,
+  .filter-wrapper {
+    width: 100%;
+  }
+}
 
-* On Hover**:
-
-   Changes text color to `#A62B1F` for brand consistency while keeping the background same.
-
-
-*/
+@media (max-width: 420px) {
+  .filter-wrapper {
+    flex-direction: column;
+  }
+}

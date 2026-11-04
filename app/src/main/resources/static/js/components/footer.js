@@ -102,3 +102,46 @@
   Call the renderFooter function to populate the footer in the page
 
 */
+
+function renderFooter() {
+  const footer = document.getElementById("footer");
+  if (!footer) return;
+
+  const year = new Date().getFullYear();
+  footer.innerHTML = `
+    <footer class="footer">
+      <div class="footer-container">
+        <div class="footer-logo">
+          <a class="logo-link" href="/" aria-label="Hospital CMS home">
+            <img src="/assets/images/logo/logo.png" alt="Hospital CMS logo">
+            <span class="logo-title">Hospital CMS</span>
+          </a>
+          <p>&copy; ${year} Hospital CMS. All rights reserved.</p>
+        </div>
+        <nav class="footer-links" aria-label="Footer navigation">
+          <div class="footer-column">
+            <h4>Explore</h4>
+            <a href="/">Home</a>
+            <a href="/pages/patientDashboard.html">Find a doctor</a>
+          </div>
+          <div class="footer-column">
+            <h4>Patient care</h4>
+            <a href="/pages/patientAppointments.html">Appointments</a>
+            <a href="mailto:support@hospitalcms.local">Contact support</a>
+          </div>
+          <div class="footer-column">
+            <h4>Information</h4>
+            <a href="mailto:privacy@hospitalcms.local">Privacy enquiries</a>
+            <a href="mailto:legal@hospitalcms.local">Legal enquiries</a>
+          </div>
+        </nav>
+      </div>
+    </footer>
+  `;
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", renderFooter, { once: true });
+} else {
+  renderFooter();
+}

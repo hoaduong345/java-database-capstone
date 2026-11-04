@@ -122,4 +122,109 @@
 
   16. **Render the Header**: Finally, the `renderHeader()` function is called to initialize the header rendering process when the page loads.
 */
-   
+
+function renderHeader() {
+  const header = document.getElementById("header");
+  if (!header) return;
+
+  const role = localStorage.getItem("userRole");
+  const token = localStorage.getItem("token");
+  const path = window.location.pathname;
+  const isHomePage = path === "/" || path.endsWith("/index.html");
+
+  if (isHomePage) {
+    header.innerHTML = `
+      <header class="header">
+        <a class="logo-link" href="/" aria-label="Hospital CMS home">
+          <img src="/assets/images/logo/logo.png" alt="" class="logo-img">
+          <span class="logo-title">Hospital CMS</span>
+        </a>
+      </header>
+    `;
+    return;
+  }
+
+  if (["admin", "doctor", "loggedPatient"].includes(role) && !token) {
+    localStorage.removeItem("userRole");
+    window.location.replace("/");
+    return;
+  }
+
+  const actions = {
+    admin: `
+      <button id="addDoctorHeaderBtn" class="adminBtn" type="button">Add Doctor</button>
+      <button id="logoutButton" class="adminBtn" type="button">Logout</button>
+    `,
+    doctor: `
+      <a class="adminBtn" href="/doctorDashboard/${encodeURIComponent(token)}">Home</a>
+      <button id="logoutButton" class="adminBtn" type="button">Logout</button>
+    `,
+    patient: `
+      <button id="patientLogin" class="adminBtn" type="button">Login</button>
+      <button id="patientSignup" class="adminBtn" type="button">Sign Up</button>
+    `,
+    loggedPatient: `
+      <a class="adminBtn" href="/pages/loggedPatientDashboard.html">Home</a>
+      <a class="adminBtn" href="/pages/patientAppointments.html">Appointments</a>
+      <button id="logoutPatientButton" class="adminBtn" type="button">Logout</button>
+    `,
+  };
+
+  header.innerHTML = `
+    <header class="header">
+      <a class="logo-link" href="/" aria-label="Hospital CMS home">
+        <img src="/assets/images/logo/logo.png" alt="" class="logo-img">
+        <span class="logo-title">Hospital CMS</span>
+      </a>
+      <nav aria-label="Main navigation">${actions[role] || ""}</nav>
+    </header>
+  `;
+
+  attachHeaderButtonListeners();
+}
+
+function attachHeaderButtonListeners() {
+  document
+    .getElementById("patientLogin")
+    ?.addEventListener("click", () => openModal("patientLogin"));
+  document
+    .getElementById("patientSignup")
+    ?.addEventListener("click", () => openModal("patientSignup"));
+  document
+    .getElementById("addDoctorHeaderBtn")
+    ?.addEventListener("click", () => openModal("addDoctor"));
+  document.getElementById("logoutButton")?.addEventListener("click", logout);
+  document
+    .getElementById("logoutPatientButton")
+    ?.addEventListener("click", logoutPatient);
+}
+
+async function openModal(type) {
+  try {
+    const modalModule = await import("./modals.js");
+    modalModule.openModal(type);
+  } catch (error) {
+    console.error("Unable to open the dialog:", error);
+  }
+}
+
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("userRole");
+  window.location.assign("/");
+}
+
+function logoutPatient() {
+  localStorage.removeItem("token");
+  localStorage.setItem("userRole", "patient");
+  window.location.assign("/pages/patientDashboard.html");
+}
+
+window.logout = logout;
+window.logoutPatient = logoutPatient;
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", renderHeader, { once: true });
+} else {
+  renderHeader();
+}
