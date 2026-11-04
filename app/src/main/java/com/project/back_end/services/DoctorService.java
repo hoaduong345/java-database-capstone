@@ -1,6 +1,218 @@
 package com.project.back_end.services;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.project.back_end.DTO.Login;
+import com.project.back_end.models.Appointment;
+import com.project.back_end.models.Doctor;
+import com.project.back_end.repo.AppointmentRepository;
+import com.project.back_end.repo.DoctorRepository;
+
+@Service
+@Transactional(readOnly = true)
 public class DoctorService {
+
+	private final DoctorRepository doctorRepository;
+	private final AppointmentRepository appointmentRepository;
+	private final TokenService tokenService;
+
+	public DoctorService(
+		DoctorRepository doctorRepository,
+		AppointmentRepository appointmentRepository,
+		TokenService tokenService
+	) {
+		this.doctorRepository = doctorRepository;
+		this.appointmentRepository = appointmentRepository;
+		this.tokenService = tokenService;
+	}
+
+	public List<String> getDoctorAvailability(Long doctorId, LocalDate date) {
+		// Load the doctor's offered slots and remove slots already occupied on this date.
+		Doctor doctor = doctorRepository.findById(doctorId).orElse(null);
+		if (doctor == null || date == null) return List.of();
+
+		List<String> offeredTimes = new ArrayList<>(doctor.getAvailableTimes());
+		LocalDateTime start = date.atStartOfDay();
+		LocalDateTime end = date.plusDays(1).atStartOfDay();
+		List<Appointment> appointments = appointmentRepository
+			.findByDoctor_IdAndAppointmentTimeBetweenAndStatus(doctorId, start, end, 0);
+		List<LocalTime> bookedStarts = appointments.stream()
+			.map(Appointment::getAppointmentTime)
+			.filter(time -> time != null)
+			.map(LocalDateTime::toLocalTime)
+			.toList();
+
+		return offeredTimes.stream()
+			.filter(slot -> {
+				LocalTime slotStart = parseSlotStart(slot);
+				return slotStart != null && !bookedStarts.contains(slotStart);
+			})
+			.toList();
+	}
+
+	@Transactional
+	public int saveDoctor(Doctor doctor) {
+		// Reject duplicate email addresses before creating a doctor record.
+		try {
+			if (doctor == null || doctorRepository.findByEmail(doctor.getEmail()) != null) return -1;
+			doctorRepository.save(doctor);
+			return 1;
+		} catch (RuntimeException error) {
+			return 0;
+		}
+	}
+
+	@Transactional
+	public int updateDoctor(Doctor doctor) {
+		// Update only an existing record and preserve its password when none is supplied.
+		try {
+			if (doctor == null || doctor.getId() == null) return -1;
+			Doctor existing = doctorRepository.findById(doctor.getId()).orElse(null);
+			if (existing == null) return -1;
+
+			Doctor emailOwner = doctorRepository.findByEmail(doctor.getEmail());
+			if (emailOwner != null && !emailOwner.getId().equals(existing.getId())) return -1;
+
+			existing.setName(doctor.getName());
+			existing.setSpecialty(doctor.getSpecialty());
+			existing.setEmail(doctor.getEmail());
+			existing.setPhone(doctor.getPhone());
+			if (doctor.getPassword() != null && !doctor.getPassword().isBlank()) {
+				existing.setPassword(doctor.getPassword());
+			}
+			existing.setAvailableTimes(doctor.getAvailableTimes());
+			doctorRepository.save(existing);
+			return 1;
+		} catch (RuntimeException error) {
+			return 0;
+		}
+	}
+
+	public List<Doctor> getDoctors() {
+		// Initialize element collections before returning entities to the controller.
+		List<Doctor> doctors = doctorRepository.findAll();
+		doctors.forEach(doctor -> doctor.getAvailableTimes().size());
+		return doctors;
+	}
+
+	@Transactional
+	public int deleteDoctor(Long doctorId) {
+		// Remove dependent appointments before deleting the doctor.
+		try {
+			if (doctorId == null || !doctorRepository.existsById(doctorId)) return -1;
+			appointmentRepository.deleteAllByDoctor_Id(doctorId);
+			doctorRepository.deleteById(doctorId);
+			return 1;
+		} catch (RuntimeException error) {
+			return 0;
+		}
+	}
+
+	public Map<String, Object> validateDoctor(Login login) {
+		// Verify doctor credentials and issue a token for the authenticated email.
+		Map<String, Object> result = new LinkedHashMap<>();
+		try {
+			Doctor doctor = login == null ? null : doctorRepository.findByEmail(login.getEmail());
+			if (login == null || doctor == null || login.getPassword() == null ||
+				!login.getPassword().equals(doctor.getPassword())) {
+				result.put("message", "Invalid email or password.");
+				return result;
+			}
+			result.put("message", "Login successful.");
+			result.put("token", tokenService.generateToken(doctor.getEmail()));
+		} catch (RuntimeException error) {
+			result.put("message", "Unable to sign in right now.");
+		}
+		return result;
+	}
+
+	public List<Doctor> findDoctorByName(String name) {
+		// Search doctor names without case sensitivity; blank input returns all doctors.
+		String normalizedName = normalizeFilter(name);
+		return normalizedName == null
+			? getDoctors()
+			: doctorRepository.findByNameContainingIgnoreCase(normalizedName);
+	}
+
+	public List<Doctor> filterDoctorsByNameSpecilityandTime(String name, String specialty, String time) {
+		// Apply name and specialty in the repository, then filter the resulting slots by AM/PM.
+		String normalizedName = normalizeFilter(name);
+		String normalizedSpecialty = normalizeFilter(specialty);
+		List<Doctor> candidates;
+
+		if (normalizedName != null && normalizedSpecialty != null) {
+			candidates = doctorRepository.findByNameContainingIgnoreCaseAndSpecialtyIgnoreCase(
+				normalizedName, normalizedSpecialty);
+		} else if (normalizedName != null) {
+			candidates = doctorRepository.findByNameContainingIgnoreCase(normalizedName);
+		} else if (normalizedSpecialty != null) {
+			candidates = doctorRepository.findBySpecialtyIgnoreCase(normalizedSpecialty);
+		} else {
+			candidates = getDoctors();
+		}
+
+		candidates.forEach(doctor -> doctor.getAvailableTimes().size());
+		return filterDoctorByTime(candidates, time);
+	}
+
+	public List<Doctor> filterDoctorByTime(List<Doctor> doctors, String time) {
+		// Keep only doctors with at least one availability slot in the requested period.
+		String normalizedTime = normalizeFilter(time);
+		if (normalizedTime == null) return doctors;
+		boolean morning = normalizedTime.equalsIgnoreCase("AM");
+		boolean afternoon = normalizedTime.equalsIgnoreCase("PM");
+		if (!morning && !afternoon) return doctors;
+
+		return doctors.stream()
+			.filter(doctor -> doctor.getAvailableTimes().stream()
+				.map(DoctorService::parseSlotStart)
+				.filter(slot -> slot != null)
+				.anyMatch(slot -> morning ? slot.getHour() < 12 : slot.getHour() >= 12))
+			.toList();
+	}
+
+	public List<Doctor> filterDoctorByNameAndTime(String name, String time) {
+		return filterDoctorByTime(findDoctorByName(name), time);
+	}
+
+	public List<Doctor> filterDoctorByNameAndSpecility(String name, String specialty) {
+		return filterDoctorsByNameSpecilityandTime(name, specialty, null);
+	}
+
+	public List<Doctor> filterDoctorByTimeAndSpecility(String time, String specialty) {
+		return filterDoctorsByNameSpecilityandTime(null, specialty, time);
+	}
+
+	public List<Doctor> filterDoctorBySpecility(String specialty) {
+		return filterDoctorsByNameSpecilityandTime(null, specialty, null);
+	}
+
+	public List<Doctor> filterDoctorsByTime(String time) {
+		return filterDoctorByTime(getDoctors(), time);
+	}
+
+	private static String normalizeFilter(String value) {
+		if (value == null || value.isBlank() || value.equalsIgnoreCase("null")) return null;
+		return value.trim();
+	}
+
+	private static LocalTime parseSlotStart(String slot) {
+		if (slot == null || slot.isBlank()) return null;
+		try {
+			return LocalTime.parse(slot.split("-", 2)[0].trim());
+		} catch (RuntimeException error) {
+			return null;
+		}
+	}
 
 // 1. **Add @Service Annotation**:
 //    - This class should be annotated with `@Service` to indicate that it is a service layer class.

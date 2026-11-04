@@ -1,15 +1,140 @@
 package com.project.back_end.services;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import com.project.back_end.DTO.AppointmentDTO;
+import com.project.back_end.DTO.Login;
+import com.project.back_end.models.Admin;
+import com.project.back_end.models.Appointment;
+import com.project.back_end.models.Doctor;
+import com.project.back_end.models.Patient;
+import com.project.back_end.repo.AdminRepository;
+import com.project.back_end.repo.PatientRepository;
+
 @org.springframework.stereotype.Service
 public class Service {
 	private final TokenService tokenService;
+	private final AdminRepository adminRepository;
+	private final PatientRepository patientRepository;
+	private final DoctorService doctorService;
+	private final PatientService patientService;
+	private final AppointmentService appointmentService;
 
-	public Service(TokenService tokenService) {
+	public Service(
+		TokenService tokenService,
+		AdminRepository adminRepository,
+		PatientRepository patientRepository,
+		DoctorService doctorService,
+		PatientService patientService,
+		AppointmentService appointmentService
+	) {
 		this.tokenService = tokenService;
+		this.adminRepository = adminRepository;
+		this.patientRepository = patientRepository;
+		this.doctorService = doctorService;
+		this.patientService = patientService;
+		this.appointmentService = appointmentService;
 	}
 
 	public boolean validateToken(String token, String userType) {
 		return tokenService.validateToken(token, userType);
+	}
+
+	public ResponseEntity<Map<String, Object>> validateAdmin(Admin credentials) {
+		// Verify the admin username/password pair and issue an authenticated token.
+		if (credentials == null || credentials.getUsername() == null || credentials.getPassword() == null) {
+			return response(HttpStatus.BAD_REQUEST, "Username and password are required.");
+		}
+		try {
+			Admin admin = adminRepository.findByUsername(credentials.getUsername());
+			if (admin == null || !credentials.getPassword().equals(admin.getPassword())) {
+				return response(HttpStatus.UNAUTHORIZED, "Invalid username or password.");
+			}
+			Map<String, Object> body = new LinkedHashMap<>();
+			body.put("message", "Login successful.");
+			body.put("token", tokenService.generateToken(admin.getUsername()));
+			return ResponseEntity.ok(body);
+		} catch (RuntimeException error) {
+			return response(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to sign in right now.");
+		}
+	}
+
+	public List<Doctor> filterDoctor(String name, String time, String specialty) {
+		// Delegate the combined doctor filters to the doctor domain service.
+		return doctorService.filterDoctorsByNameSpecilityandTime(name, specialty, time);
+	}
+
+	public int validateAppointment(Appointment appointment) {
+		// Delegate availability and overlap checks to the appointment service.
+		return appointmentService.validateAppointment(appointment);
+	}
+
+	public boolean validatePatient(Patient patient) {
+		// New patient records must not duplicate an existing email address or phone number.
+		if (patient == null || patient.getEmail() == null || patient.getPhone() == null) return false;
+		return patientRepository.findByEmailOrPhone(patient.getEmail(), patient.getPhone()) == null;
+	}
+
+	public ResponseEntity<Map<String, Object>> validatePatientLogin(Login credentials) {
+		// Verify patient credentials and return a JWT whose subject is the patient's email.
+		if (credentials == null || credentials.getEmail() == null || credentials.getPassword() == null) {
+			return response(HttpStatus.BAD_REQUEST, "Email and password are required.");
+		}
+		try {
+			Patient patient = patientRepository.findByEmail(credentials.getEmail());
+			if (patient == null || !credentials.getPassword().equals(patient.getPassword())) {
+				return response(HttpStatus.UNAUTHORIZED, "Invalid email or password.");
+			}
+			Map<String, Object> body = new LinkedHashMap<>();
+			body.put("message", "Login successful.");
+			body.put("token", tokenService.generateToken(patient.getEmail()));
+			return ResponseEntity.ok(body);
+		} catch (RuntimeException error) {
+			return response(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to sign in right now.");
+		}
+	}
+
+	public Map<String, Object> filterPatient(String condition, String name, String token) {
+		// Resolve the patient from the token before returning any appointment data.
+		Map<String, Object> body = new LinkedHashMap<>();
+		if (!validateToken(token, "patient")) {
+			body.put("message", "Invalid or expired patient token.");
+			body.put("appointments", List.of());
+			return body;
+		}
+
+		String email = tokenService.extractEmail(token);
+		Patient patient = email == null ? null : patientRepository.findByEmail(email);
+		if (patient == null) {
+			body.put("message", "Patient account was not found.");
+			body.put("appointments", List.of());
+			return body;
+		}
+
+		List<AppointmentDTO> appointments;
+		boolean hasName = name != null && !name.isBlank() && !name.equalsIgnoreCase("null");
+		boolean hasCondition = condition != null && !condition.isBlank() && !condition.equalsIgnoreCase("null")
+			&& !condition.equalsIgnoreCase("allAppointments");
+		if (hasName && hasCondition) {
+			appointments = patientService.filterByDoctorAndCondition(patient.getId(), name, condition);
+		} else if (hasName) {
+			appointments = patientService.filterByDoctor(patient.getId(), name);
+		} else {
+			appointments = patientService.filterByCondition(patient.getId(), condition);
+		}
+		body.put("appointments", appointments);
+		return body;
+	}
+
+	private static ResponseEntity<Map<String, Object>> response(HttpStatus status, String message) {
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("message", message);
+		return ResponseEntity.status(status).body(body);
 	}
 
 // 1. **@Service Annotation**

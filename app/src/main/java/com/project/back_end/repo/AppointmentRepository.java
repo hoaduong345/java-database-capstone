@@ -1,6 +1,49 @@
 package com.project.back_end.repo;
 
-public interface AppointmentRepository  {
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.project.back_end.models.Appointment;
+
+public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
+
+   @EntityGraph(attributePaths = {"doctor", "patient"})
+   List<Appointment> findByDoctor_IdAndAppointmentTimeBetween(Long doctorId, LocalDateTime start, LocalDateTime end);
+
+   @EntityGraph(attributePaths = {"doctor", "patient"})
+   List<Appointment> findByDoctor_IdAndPatient_NameContainingIgnoreCaseAndAppointmentTimeBetween(
+      Long doctorId, String patientName, LocalDateTime start, LocalDateTime end);
+
+   @EntityGraph(attributePaths = {"doctor", "patient"})
+   List<Appointment> findByDoctor_IdAndAppointmentTimeBetweenAndStatus(
+      Long doctorId, LocalDateTime start, LocalDateTime end, int status);
+
+   void deleteAllByDoctor_Id(Long doctorId);
+
+   @EntityGraph(attributePaths = {"doctor", "patient"})
+   List<Appointment> findByPatient_Id(Long patientId);
+
+   @EntityGraph(attributePaths = {"doctor", "patient"})
+   List<Appointment> findByPatient_IdAndStatusOrderByAppointmentTimeAsc(Long patientId, int status);
+
+   @EntityGraph(attributePaths = {"doctor", "patient"})
+   List<Appointment> findByDoctor_NameContainingIgnoreCaseAndPatient_Id(String doctorName, Long patientId);
+
+   @EntityGraph(attributePaths = {"doctor", "patient"})
+   List<Appointment> findByDoctor_NameContainingIgnoreCaseAndPatient_IdAndStatus(
+      String doctorName, Long patientId, int status);
+
+   @Modifying
+   @Transactional
+   @Query("UPDATE Appointment appointment SET appointment.status = :status WHERE appointment.id = :id")
+   int updateStatus(@Param("status") int status, @Param("id") long id);
 
    // 1. Extend JpaRepository:
 //    - The repository extends JpaRepository<Appointment, Long>, which gives it basic CRUD functionality.
